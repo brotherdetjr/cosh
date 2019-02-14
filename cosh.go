@@ -6,11 +6,18 @@ import (
 
 func main() {
 	vm := goja.New()
-	vm.GlobalObject().Set("nunjucks", evalResource("embedded/nunjucks.js", vm))
-	r, _ := vm.RunString(`
-	'Hello {{ username }}!'.render({ username: 'Disa' });
-	`)
-	println(r.String())
+	global := vm.GlobalObject()
+	global.Set("nunjucks", evalResource("embedded/nunjucks.js", vm))
+	coffee := evalResource("embedded/coffee-script.js", vm)
+	global.Set("coffee", coffee)
+	compile := coffee.ToObject(vm).Get("compile").Export().(func(goja.FunctionCall) goja.Value)
+	arg := goja.FunctionCall{
+		This: vm.GlobalObject(),
+		Arguments: []goja.Value{
+			goja.NewStringValue("({x, y}).x = {x: 42}"),
+		},
+	}
+	println(compile(arg).String())
 
 }
 
@@ -25,3 +32,7 @@ func evalResource(resourceName string, vm *goja.Runtime) goja.Value {
 		}
 	}
 }
+
+/*func evalCoffee(script string) goja.Value {
+
+}*/
