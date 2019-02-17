@@ -35,7 +35,10 @@ func main() {
 		ToObject(vm).
 		Get("compile").
 		Export().(func(goja.FunctionCall) goja.Value)
-	cosh := `$ (echo 'hello', 'world!!!')(sed 's/o/0/g')(sed 's/l/1/g')`
+	cosh := `
+$ (echo 'hello', 'world!!!')(sed 's/o/0/g')(sed 's/l/1/g')
+$ 'Hello, {{ name }}!!!'.render name: 'Maximka'
+`
 	arg := goja.FunctionCall{
 		This:      vm.GlobalObject(),
 		Arguments: []goja.Value{vm.ToValue(cosh)},
