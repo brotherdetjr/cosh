@@ -8,17 +8,15 @@ import (
 
 func main() {
 	vm := goja.New()
-	global := vm.GlobalObject()
-	_ = global.Set("nunjucks", evalResource("embedded/nunjucks.js", vm))
-	coffee := evalResource("embedded/coffee-script.js", vm)
-	_ = global.Set("coffee", coffee)
+	vm.SetTemplateRenderer(evalResource("embedded/nunjucks.js", vm), "renderString")
 	vm.SetResolver(evalResource("embedded/resolver.js", vm).(*goja.Object))
+	coffee := evalResource("embedded/coffee-script.js", vm)
 	compile := coffee.ToObject(vm).Get("compile").Export().(func(goja.FunctionCall) goja.Value)
 	arg := goja.FunctionCall{
 		This: vm.GlobalObject(),
 		Arguments: []goja.Value{
 			goja.NewStringValue(`
-return echo 0, 1, 2, 3
+return echo 0, 1, 2, "{{ x }}{{ x }}".render(x: 33)
 `),
 		},
 	}
