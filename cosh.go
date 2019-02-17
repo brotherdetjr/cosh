@@ -65,25 +65,15 @@ func evalResource(resourceName string, vm *goja.Runtime) goja.Value {
 	}
 }
 
-func getLast(link Link) Link {
-	for link.GetNext() != nil {
-		link = link.GetNext()
-	}
-	return link
-}
-
 func Join(a Link, b Link) {
-	last := getLast(a)
-	last.SetNext(b)
-	b.SetPrevious(last)
-	b.SetStdin(last.GetStdoutPipe())
+	b.SetPrevious(a)
+	b.SetStdin(a.GetStdoutPipe())
 }
 
 func Consume(link Link, writer io.Writer) {
-	last := getLast(link)
-	last.SetStdout(writer)
-	last.Start()
-	link = last
+	link.SetStdout(writer)
+	link.Start()
+	last := link
 	for link.GetPrevious() != nil {
 		link = link.GetPrevious()
 		link.Start()
@@ -99,31 +89,20 @@ type Link interface {
 	SetStdin(reader io.Reader)
 	SetStdout(writer io.Writer)
 	GetStdoutPipe() io.Reader
-	SetNext(link Link)
-	GetNext() Link
 	SetPrevious(link Link)
 	GetPrevious() Link
 	Start()
 	Wait()
 }
 
-type Bidirectional struct {
-	Next Link
-	Prev Link
-}
-
 type CmdLink struct {
-	Bidirectional
-	Cmd *exec.Cmd
+	Prev Link
+	Cmd  *exec.Cmd
 }
 
 func (cmdLink *CmdLink) GetStdoutPipe() io.Reader {
 	pipe, _ := cmdLink.Cmd.StdoutPipe()
 	return pipe
-}
-
-func (cmdLink *CmdLink) SetNext(link Link) {
-	cmdLink.Next = link
 }
 
 func (cmdLink *CmdLink) SetStdin(reader io.Reader) {
@@ -132,10 +111,6 @@ func (cmdLink *CmdLink) SetStdin(reader io.Reader) {
 
 func (cmdLink *CmdLink) SetStdout(writer io.Writer) {
 	cmdLink.Cmd.Stdout = writer
-}
-
-func (cmdLink *CmdLink) GetNext() Link {
-	return cmdLink.Next
 }
 
 func (cmdLink *CmdLink) GetPrevious() Link {
