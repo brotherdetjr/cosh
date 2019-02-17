@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/brotherdetjr/goja"
+	"io"
 	"os"
 	"os/exec"
 )
@@ -30,14 +31,12 @@ return echo 0, 1, 2, "{{ x }}{{ x }}".render(x: 33)
 		println(value.String())
 	}
 
-	c1 := exec.Command("echo", "hello world\ndiso")
-	c2 := exec.Command("sed", "s/o/x/g")
-
-	c2.Stdin, _ = c1.StdoutPipe()
-	c2.Stdout = os.Stdout
-	_ = c2.Start()
-	_ = c1.Start()
-	_ = c2.Wait()
+	c1 := NewCmdLink("echo", "hello world\ndiso")
+	c2 := NewCmdLink("sed", "s/o/0/g")
+	c3 := NewCmdLink("sed", "s/l/1/g")
+	Join(c1, c2)
+	Join(c2, c3)
+	Consume(c1, os.Stdout)
 }
 
 func evalResource(resourceName string, vm *goja.Runtime) goja.Value {
@@ -50,4 +49,87 @@ func evalResource(resourceName string, vm *goja.Runtime) goja.Value {
 			return value
 		}
 	}
+}
+
+func Join(a Link, b Link) {
+	a.SetNext(b)
+	b.SetPrevious(a)
+	b.SetStdin(a.GetStdoutPipe())
+}
+
+func Consume(link Link, writer io.Writer) {
+	for link.GetNext() != nil {
+		link = link.GetNext()
+	}
+	last := link
+	last.SetStdout(writer)
+	last.Start()
+	for link.GetPrevious() != nil {
+		link = link.GetPrevious()
+		link.Start()
+	}
+	last.Wait()
+}
+
+func NewCmdLink(name string, arg ...string) *CmdLink {
+	return &CmdLink{Cmd: exec.Command(name, arg...)}
+}
+
+type Link interface {
+	SetStdin(reader io.Reader)
+	SetStdout(writer io.Writer)
+	GetStdoutPipe() io.Reader
+	SetNext(link Link)
+	GetNext() Link
+	SetPrevious(link Link)
+	GetPrevious() Link
+	Start()
+	Wait()
+}
+
+type Bidirectional struct {
+	Next Link
+	Prev Link
+}
+
+type CmdLink struct {
+	Bidirectional
+	Cmd *exec.Cmd
+}
+
+func (cmdLink *CmdLink) GetStdoutPipe() io.Reader {
+	pipe, _ := cmdLink.Cmd.StdoutPipe()
+	return pipe
+}
+
+func (cmdLink *CmdLink) SetNext(link Link) {
+	cmdLink.Next = link
+}
+
+func (cmdLink *CmdLink) SetStdin(reader io.Reader) {
+	cmdLink.Cmd.Stdin = reader
+}
+
+func (cmdLink *CmdLink) SetStdout(writer io.Writer) {
+	cmdLink.Cmd.Stdout = writer
+}
+
+func (cmdLink *CmdLink) GetNext() Link {
+	return cmdLink.Next
+}
+
+func (cmdLink *CmdLink) GetPrevious() Link {
+	return cmdLink.Prev
+}
+
+func (cmdLink *CmdLink) SetPrevious(link Link) {
+	cmdLink.Prev = link
+}
+
+func (cmdLink *CmdLink) Start() {
+	_ = cmdLink.Cmd.Start()
+}
+
+func (cmdLink *CmdLink) Wait() {
+	_ = cmdLink.Cmd.Wait()
 }
