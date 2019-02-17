@@ -15,7 +15,7 @@ func main() {
 	arg := goja.FunctionCall{
 		This: vm.GlobalObject(),
 		Arguments: []goja.Value{
-			goja.NewStringValue(`
+			vm.ToValue(`
 return echo 0, 1, 2, "{{ x }}{{ x }}".render(x: 33)
 `),
 		},
