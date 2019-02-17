@@ -36,6 +36,7 @@ func main() {
 		Get("compile").
 		Export().(func(goja.FunctionCall) goja.Value)
 	cosh := `
+$ ls()
 $ (echo 'hello', 'world!!!')(sed 's/o/0/g')(sed 's/l/1/g')
 $ 'Hello, {{ name }}!!!'.render name: 'Maximka'
 `
