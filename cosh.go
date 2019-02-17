@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"github.com/brotherdetjr/goja"
 	"io"
 	"os"
@@ -11,6 +12,17 @@ func main() {
 	vm := goja.New()
 	vm.SetTemplateRenderer(evalResource("embedded/nunjucks.js", vm), "renderString")
 	vm.SetResolver(evalResource("embedded/resolver.js", vm).(*goja.Object))
+	vm.Set("join", func(a *goja.Object, b *goja.Object) {
+		Join(extractLink(a), extractLink(b))
+	})
+	vm.Set("$", func(wrapped goja.Value) {
+		switch w := wrapped.(type) {
+		case *goja.Object:
+			Consume(extractLink(w), os.Stdout)
+		default:
+			fmt.Println(w.String())
+		}
+	})
 	vm.Set("newCmdLink", func(call goja.FunctionCall) goja.Value {
 		argCount := len(call.Arguments) - 1
 		tail := make([]string, argCount)
@@ -23,28 +35,19 @@ func main() {
 		ToObject(vm).
 		Get("compile").
 		Export().(func(goja.FunctionCall) goja.Value)
+	cosh := `$ (echo 'hello', 'world!!!')(sed 's/o/0/g')(sed 's/l/1/g')`
 	arg := goja.FunctionCall{
-		This: vm.GlobalObject(),
-		Arguments: []goja.Value{
-			vm.ToValue(`
-return echo('hello', 'world').Cmd.Args
-`),
-		},
+		This:      vm.GlobalObject(),
+		Arguments: []goja.Value{vm.ToValue(cosh)},
 	}
 	js := coffee(arg).String()
-	println(js)
-	if value, err := vm.RunString(js); err != nil {
+	if _, err := vm.RunString(js); err != nil {
 		panic(err)
-	} else {
-		println(value.String())
 	}
+}
 
-	c1 := NewCmdLink("echo", "hello world\ndiso")
-	c2 := NewCmdLink("sed", "s/o/0/g")
-	c3 := NewCmdLink("sed", "s/l/1/g")
-	Join(c1, c2)
-	Join(c2, c3)
-	Consume(c1, os.Stdout)
+func extractLink(wrapped *goja.Object) Link {
+	return wrapped.Get("link").Export().(Link)
 }
 
 func evalResource(resourceName string, vm *goja.Runtime) goja.Value {
@@ -59,19 +62,25 @@ func evalResource(resourceName string, vm *goja.Runtime) goja.Value {
 	}
 }
 
-func Join(a Link, b Link) {
-	a.SetNext(b)
-	b.SetPrevious(a)
-	b.SetStdin(a.GetStdoutPipe())
-}
-
-func Consume(link Link, writer io.Writer) {
+func getLast(link Link) Link {
 	for link.GetNext() != nil {
 		link = link.GetNext()
 	}
-	last := link
+	return link
+}
+
+func Join(a Link, b Link) {
+	last := getLast(a)
+	last.SetNext(b)
+	b.SetPrevious(last)
+	b.SetStdin(last.GetStdoutPipe())
+}
+
+func Consume(link Link, writer io.Writer) {
+	last := getLast(link)
 	last.SetStdout(writer)
 	last.Start()
+	link = last
 	for link.GetPrevious() != nil {
 		link = link.GetPrevious()
 		link.Start()
