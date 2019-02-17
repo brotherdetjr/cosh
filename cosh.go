@@ -10,8 +10,10 @@ func main() {
 	vm := goja.New()
 	vm.SetTemplateRenderer(evalResource("embedded/nunjucks.js", vm), "renderString")
 	vm.SetResolver(evalResource("embedded/resolver.js", vm).(*goja.Object))
-	coffee := evalResource("embedded/coffee-script.js", vm)
-	compile := coffee.ToObject(vm).Get("compile").Export().(func(goja.FunctionCall) goja.Value)
+	coffee := evalResource("embedded/coffee-script.js", vm).
+		ToObject(vm).
+		Get("compile").
+		Export().(func(goja.FunctionCall) goja.Value)
 	arg := goja.FunctionCall{
 		This: vm.GlobalObject(),
 		Arguments: []goja.Value{
@@ -20,7 +22,7 @@ return echo 0, 1, 2, "{{ x }}{{ x }}".render(x: 33)
 `),
 		},
 	}
-	js := compile(arg).String()
+	js := coffee(arg).String()
 	println(js)
 	if value, err := vm.RunString(js); err != nil {
 		panic(err)
