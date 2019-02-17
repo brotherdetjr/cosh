@@ -27,7 +27,7 @@ func main() {
 		This: vm.GlobalObject(),
 		Arguments: []goja.Value{
 			vm.ToValue(`
-return newCmdLink('hello', 'world', 'echo').Cmd.Args
+return echo('hello', 'world').Cmd.Args
 `),
 		},
 	}
