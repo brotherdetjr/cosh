@@ -15,12 +15,13 @@ func main() {
 	vm.Set("join", func(a *goja.Object, b *goja.Object) {
 		Join(extractLink(a), extractLink(b))
 	})
-	vm.Set("$", func(wrapped goja.Value) {
+	vm.Set("$", func(wrapped goja.Value) error {
 		switch w := wrapped.(type) {
 		case *goja.Object:
-			Consume(extractLink(w), os.Stdout)
+			return Consume(extractLink(w), os.Stdout)
 		default:
 			fmt.Println(w.String())
+			return nil
 		}
 	})
 	vm.Set("newCmdLink", func(call goja.FunctionCall) goja.Value {
@@ -36,7 +37,6 @@ func main() {
 		Get("compile").
 		Export().(func(goja.FunctionCall) goja.Value)
 	cosh := `
-$ ls()
 $ (echo 'hello', 'world!!!')(sed 's/o/0/g')(sed 's/l/1/g')
 $ 'Hello, {{ name }}!!!'.render name: 'Maximka'
 `
@@ -71,7 +71,7 @@ func Join(a Link, b Link) {
 	b.SetStdin(a.GetStdoutPipe())
 }
 
-func Consume(link Link, writer io.Writer) {
+func Consume(link Link, writer io.Writer) error {
 	link.SetStdout(writer)
 	link.Start()
 	last := link
@@ -79,7 +79,7 @@ func Consume(link Link, writer io.Writer) {
 		link = link.GetPrevious()
 		link.Start()
 	}
-	last.Wait()
+	return last.Wait()
 }
 
 func NewCmdLink(name string, arg ...string) *CmdLink {
@@ -93,7 +93,7 @@ type Link interface {
 	SetPrevious(link Link)
 	GetPrevious() Link
 	Start()
-	Wait()
+	Wait() error
 }
 
 type CmdLink struct {
@@ -126,6 +126,6 @@ func (cmdLink *CmdLink) Start() {
 	_ = cmdLink.Cmd.Start()
 }
 
-func (cmdLink *CmdLink) Wait() {
-	_ = cmdLink.Cmd.Wait()
+func (cmdLink *CmdLink) Wait() error {
+	return cmdLink.Cmd.Wait()
 }
