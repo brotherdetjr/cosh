@@ -11,6 +11,14 @@ func main() {
 	vm := goja.New()
 	vm.SetTemplateRenderer(evalResource("embedded/nunjucks.js", vm), "renderString")
 	vm.SetResolver(evalResource("embedded/resolver.js", vm).(*goja.Object))
+	vm.Set("newCmdLink", func(call goja.FunctionCall) goja.Value {
+		argCount := len(call.Arguments) - 1
+		tail := make([]string, argCount)
+		for key, value := range call.Arguments[:argCount] {
+			tail[key] = value.String()
+		}
+		return vm.ToValue(NewCmdLink(call.Arguments[argCount].String(), tail...))
+	})
 	coffee := evalResource("embedded/coffee-script.js", vm).
 		ToObject(vm).
 		Get("compile").
@@ -19,7 +27,7 @@ func main() {
 		This: vm.GlobalObject(),
 		Arguments: []goja.Value{
 			vm.ToValue(`
-return echo 0, 1, 2, "{{ x }}{{ x }}".render(x: 33)
+return newCmdLink('hello', 'world', 'echo').Cmd.Args
 `),
 		},
 	}
