@@ -44,7 +44,7 @@ func main() {
 	vm.Set("join", func(a *goja.Object, b *goja.Object) *goja.Object {
 		if b.Get("link") == nil {
 			arg := goja.FunctionCall{
-				This:      vm.GlobalObject(),
+				This:      vm.ToValue(nil),
 				Arguments: []goja.Value{b},
 			}
 			b = vm.Get("mappingWrapper").Export().(func(goja.FunctionCall) goja.Value)(arg).(*goja.Object)
